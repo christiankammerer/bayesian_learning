@@ -173,27 +173,51 @@ print(hpdi)
 ```
 Both intervals are similar, the CI is slightly shifted to larger values though.
 
-# 3.
+# 3.Bayesian inference for the rate parameter in the Poisson distribution.
+
+This exercise aims to show you that a grid approximation can be used to obtain information of the posterior distribution when the distributions for prior and posterior are not conjugate. In some cases, it is sufficient to evaluate the posterior pdf $p(λ|y)$ at a finite set of $λ$ values to understand its structure and obtain important
+quantities.
+The data points below represent the number of goals scored in each match of the
+opening week of the 2024 Swedish women's football league (Damallsvenskan):
+$$y = (0, 2, 5, 5, 7, 1, 4).$$
+We assume that these data points are independent observations from the Poisson distribution with rate parameter λ > 0 which tells us about the average goals rate in a match. Let the prior distribution of λ be the half-normal distribution with prior pdf
+$$p(λ|σ) = \frac{\sqrt{2}}{\sigma \sqrt{\pi}} exp(- \frac{\lambda^2}{2\sigma^2})
+, λ ≥ 0,
+$$
+and the scale parameter that is set to be $σ = 5$.
 
 ## 3.1
 
-$$L(\lambda; y) = \prod^n_{i=1} \frac{\lambda^{k_i}e^{-\lambda}}{k_i!}=\frac{e^{-n\lambda}\cdot\lambda^{\sum^n_{i=1}k_i}}{\prod^n_{i=1}k_i!}\propto e^{-n\lambda}\cdot\lambda^{\sum^n_{i=1}k_i}$$
+**Derive the expression for what the posterior pdf $p(λ|y, σ)$ is proportional to.
+Then, plot the posterior distribution of the average goals rate parameter $λ$ over
+a fine grid of $λ$ values. [Hint: you need to normalize the posterior pdf $p(λ|y, σ)$
+so that it integrates to one.]**
 
-$$
-p(\lambda|y,\sigma) \propto p(y|\lambda) \cdot p(\lambda|\sigma)
-$$
+At first we need the likelihood to compute the posterior. It is the product of the pdf. As the denominator is not dependent on \lambda, we only use the nominator in the following.
 
+$$p(y|\lambda) = \prod^n_{i=1} \frac{\lambda^{k_i}e^{-\lambda}}{k_i!}=\frac{e^{-n\lambda}\cdot\lambda^{\sum^n_{i=1}k_i}}{\prod^n_{i=1}k_i!}\propto e^{-n\lambda}\cdot\lambda^{\sum^n_{i=1}k_i}$$
+The given data gives us the following likelihood:
 $$
 p(y|\lambda) = e^{-7\lambda}\cdot\lambda^{24}
 $$
 
+
+The posterior is the product of likelihood and prior:
+$$
+p(\lambda|y,\sigma) \propto p(y|\lambda) \cdot p(\lambda|\sigma)
+$$
+
+In the prior we can leave out the first part, as it does not depend on \lambda. As we know that $\sigma = 5$, we get the following prior:
+
 $$
 p(\lambda|\sigma) \propto e^{\frac{-\lambda^2}{50}\cdot\lambda^{24}}
 $$
+Plugging in the likelihood and prior, we finally get the posterior:
 
 $$
-p(\lambda|y,\sigma) \propto e^{7\lambda+\frac{-\lambda^2}{50}}
+p(\lambda|y,\sigma)\propto \lambda^{24}e^{-7\lambda} \cdot e^{-\frac{\lambda^2}{50}} 
 $$
+
 
 ```{r}
 lambda_grid <- seq(0, 20, length.out = 1000)
@@ -211,7 +235,10 @@ print(p)
 ```
 
 ## 3.2
+**ind the (approximate) posterior mode of λ from the information in a).**
 
 ```{r}
 mode <- lambda_grid[which.max(posterior)]
+cat("mode: ", mode)
 ```
+The mode is approximately 3.36. As we are only searching on the grid, it is only an approximation.
