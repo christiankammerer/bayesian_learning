@@ -1,6 +1,12 @@
-# 1.
+# 1. Daniel Bernoulli
+
+Let $y_1, ..., y_n|θ ∼ Bern(θ)$, and assume that you have obtained a sample with $f = 35$ failures in $n = 78$ trials. Assume a $Beta(α_0, β_0)$ prior for $θ$ and let $α_0 = β_0 = 7$.
 
 ## 1.1
+
+**Draw 10000 random values (nDraws = 10000) from the posterior $θ|y ∼ Beta(α_0+s, β_0 + f )$, where $y = (y_1, . . . , y_n)$, and verify graphically that the posterior mean $E[θ|y]$ and standard deviation $SD[θ|y]$ converges to the true values as the number of random draws grows large. [Hint: use rbeta() to draw random values and make graphs of the sample means and standard deviations of θ as a function of the accumulating number of drawn values].** 
+
+To verify that the posterior mean and standard deviation converge to the true values as the number of random draws grows large, we draw from the posterior and plot the mean and standard deviation of the accumulating number of values and add lines for their true values. The resulting graphs both show that the mean converges to the true mean from around 6500 drawn values on, the standard deviation converges earlier at around 2600 drawn values.
 
 ```{r}
 library(ggplot2)
@@ -49,7 +55,7 @@ p <- ggplot() +
 print(p)
 hline_data <- data.frame(x = c(1, 10000), y = true_sd)
 p <- ggplot() +
-  aes(x = (1:10000), y = n_means, color = "Sample SD") +
+  aes(x = (1:10000), y = n_sds, color = "Sample SD") +
   geom_line() +
   xlab("Number of Draws") +
   ylab("Mean across the first i draws") +
@@ -63,12 +69,18 @@ print(p)
 
 ## 1.2
 
+**Draw 10000 random values from the posterior to compute the posterior probability $Pr(θ > 0.5|y)$ and compare with the exact value from the Beta posterior. [Hint: use pbeta() to calculate the exact value].**
+
 ```{r}
 prob <- mean(n_draws > 0.5)
 actual_prob <- 1 - pbeta(q = 0.5, shape1 = alpha + s, shape2 = beta + f)
+cat("Posterior probability: ", prob, ", exact value: ", actual_prob)
 ```
 
+$Pr(θ > 0.5|y)$ is the same as $1 - Pr(θ \leq 0.5|y)$. Using the pbeta() function we get the value for the probability. The exact value we get is the same as the posterior probability in two decimals.
+
 ## 1.3
+**Draw 10000 random values from the posterior of the odds $φ = θ / (1−θ)$ by using the previous random draws from the Beta posterior for $θ$ and plot the posterior distribution of $φ$. [Hint: hist() and density() can be utilized]**
 
 ```{r}
 phis <- n_draws / (1 - n_draws)
@@ -76,17 +88,32 @@ density_phi <- density(phis)
 
 # Plot histogram
 hist(phis, main = expression(paste("Distribution of ", phi)), 
-     xlab = expression(phi), freq = FALSE)
+     xlab = expression(phi), freq = FALSE, breaks=20)
 
 # Add density line
 lines(density_phi, col = "red")
 ```
+The resulting histogram has a similar shape to the actual density of the odds.
 
-# 2.
+# 2. Log-normal distribution and the Gini coefficient.
 
-```{r}
+**Assume that you have asked 8 randomly selected persons about their monthly income (in thousands Swedish Krona) and obtained the following eight observations:
+22, 33, 31, 49, 65, 78, 17, 24. A common model for non-negative continuous variables is the log-normal distribution. The log-normal distribution log N (μ, σ2) has density function
+$p(y|μ, σ2) = \frac{1}{y \cdot \sqrt{2 \pi \sigma^2}} exp[-\frac{1}{2\sigma^2} (\log y - \mu^2)] $, where $y > 0$, $−∞ < μ < ∞ $and $σ2 > 0$. The log-normal distribution is related to the normal distribution as follows: if $y ∼ \log N (μ, σ2)$ then $\log y ∼ N (μ, σ2)$.
+Let $y1, ..., yn|μ, σ2 iid ∼ log N (μ, σ2)$, where $μ = 3.65$ is assumed to be known but $σ^2$ is unknown with non-informative prior $p(σ^2) ∝ 1/σ^2$. The posterior for $σ^2$ is the scaled inverse chi-squared distribution, $Scale-inv-χ2(n, τ 2)$, where
+$τ^2 = \frac{\sum^n_{i=1}(\log y_i - \mu)^2}{n}$.**
+
+```{r echo=FALSE, warning=FALSE, include=FALSE}
 library(asbio)
 library(bayestestR)
+
+``` 
+
+## 2.1 
+**Draw 10000 random values from the posterior of σ2 by assuming μ = 3.65 and
+plot the posterior distribution.** 
+
+```{r}
 y_vec <- c(22, 33, 31, 49, 65, 78, 17, 24)
 mu <- 3.65
 
@@ -106,6 +133,13 @@ hist(sample_var, main = expression(paste("Distribution of ", sigma^2)),
 # Add density line
 lines(density_sample_var, col = "red")
 
+
+```
+
+##2.2 
+**The most common measure of income inequality is the Gini coefficient, $G$, where $0 ≤ G ≤ 1$. $G = 0$ means a completely equal income distribution, whereas $G = 1$ means complete income inequality (see e.g. Wikipedia for more information about the Gini coefficient). It can be shown that $G = 2Φ (σ/√2)− 1$ when incomes follow a $\log N (μ, σ2)$ distribution. $Φ(z)$ is the cumulative distribution function (CDF) for the standard normal distribution with mean zero and unit variance. Use the posterior draws in a) to compute the posterior distribution of the Gini coefficient $G$ for the current data set.**
+
+```{r}
 ginis <- sapply(sample_var, function(sigma_sq) 2 * pnorm(q = sqrt(sigma_sq)/sqrt(2)) - 1)
 
 density_ginis <- density(ginis)
@@ -116,9 +150,28 @@ hist(ginis, main = "Distribution of Gini Coefficient",
 
 lines(density_ginis, col = "blue")
 
-ci <- quantile(ginis, probs = c(0.025, 0.975))
-hpdi <- hdi(ginis, ci = 0.95)
 ```
+
+Using the posterior draws from 2.1 we get the histogram above for $G$ of the current data set.
+
+## 2.3
+
+**Use the posterior draws from b) to compute a 95% equal tail credible interval for G. A 95% equal tail credible interval (a, b) cuts off 2.5% percent of the posterior probability mass to the left of a, and 2.5% to the right of b.**
+
+To obtain the 95%-CI we use the quantile()-method in R. 
+
+```{r}
+ci <- quantile(ginis, probs = c(0.025, 0.975))
+```
+
+## 2.4
+**Use the posterior draws from b) to compute a 95% Highest Posterior Density Interval (HPDI) for G. Compare the two intervals in (c) and (d). [Hint: Use the hdi() function from the bayestestR package.]**
+```{r}
+hpdi <- hdi(ginis, ci = 0.95)
+cat("CI: ", ci)
+print(hpdi)
+```
+Both intervals are similar, the CI is slightly shifted to larger values though.
 
 # 3.
 
