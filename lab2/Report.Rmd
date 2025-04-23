@@ -1,0 +1,79 @@
+# Lab 2
+
+## Exercise 2
+### Part a)
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+library(asbio)
+library(mvtnorm)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+data <- read.csv("temp_linkoping.csv")
+
+beta_prior_f <- function(n, mu0, sigma_sq, omega_0_inv){
+  return(rmvnorm(n, mean = mu0, sigma = sqrt(sigma_sq * omega_0_inv)))
+}
+
+sigma_prior_f <- function(n, v0, sigma_sq_0){
+  rinvchisq(n, df = v0, scale = sigma_sq_0)
+}
+
+joint_prior <- function(n=1, mu0 = c(0, -100, 100), 
+                        omega_0_inv = 0.01 * diag(3), 
+                        v0=1, sigma_sq_0=1){
+  sigma_sq <- sigma_prior_f(1, v0, sigma_sq_0)
+  beta <- beta_prior_f(1, mu0, sigma_sq, omega_0_inv)
+  return(beta)
+}
+
+
+# Prior with initial hyper parameters
+beta_draws <- sapply(1:1000, joint_prior)
+beta_draws_t <- t(beta_draws)
+
+x_vals <- seq(1, 365, 1)/365
+
+# Build data frame of predictions
+curve_data <- lapply(1:nrow(beta_draws_t), function(i) {
+  beta <- beta_draws_t[i, ]
+  data.frame(
+    x = x_vals,
+    y = beta[1] + beta[2]*x_vals + beta[3]*x_vals^2,
+    curve = paste0("Draw_", i)
+  )
+}) %>% bind_rows()
+
+p <- ggplot(curve_data, aes(x = x, y = y, group = curve, color = curve)) +
+  geom_line(alpha = 0.7) +
+  labs(title = "Regression Curves from Prior Draws",
+       x = "x", y = "y") +
+  theme_minimal() +
+  theme(legend.position = "none")  # optional, removes legend
+
+print(p)
+
+beta_draws <- sapply(1:1000, function(x) joint_prior(mu0 = c(20, -100, 100)))
+beta_draws_t <- t(beta_draws)
+
+x_vals <- seq(1, 365, 1)/365
+
+# Build data frame of predictions
+curve_data <- lapply(1:nrow(beta_draws_t), function(i) {
+  beta <- beta_draws_t[i, ]
+  data.frame(
+    x = x_vals,
+    y = beta[1] + beta[2]*x_vals + beta[3]*x_vals^2,
+    curve = paste0("Draw_", i)
+  )
+}) %>% bind_rows()
+
+p <- ggplot(curve_data, aes(x = x, y = y, group = curve, color = curve)) +
+  geom_line(alpha = 0.7) +
+  labs(title = "Regression Curves from Prior Draws",
+       x = "x", y = "y") +
+  theme_minimal() +
+  theme(legend.position = "none")  # optional, removes legend
+
+print(p)
+```
