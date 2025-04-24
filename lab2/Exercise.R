@@ -107,7 +107,8 @@ posterior_params <- get_posterior_parameters(mu0 = c(20, -100, 100),
                                              sigma_sq_0 = 1, v0 = 1,
                                              y, X)
 
-posterior_draws <- beta_posterior_f(n = 1000, posterior_params)
+n_post = 1000
+posterior_draws <- beta_posterior_f(n = n_post, posterior_params)
 beta_posterior_draws <- posterior_draws$beta
 sigma_posterior_draws <- posterior_draws$sigma
 
@@ -130,3 +131,44 @@ p <- ggplot(beta_long, aes(x = Value, fill = Beta)) +
 print(p)
 
 p <- hist(sigma_posterior_draws, col =  "red")
+
+apply_regression <- function(beta_values, X){
+  return(beta_values[1] + beta_values[2] * X[2] + beta_values[3] * X[3])
+}
+
+temp_matrix <- matrix(ncol = nrow(beta_posterior_draws), nrow = nrow(X))
+
+for(i in 1:nrow(temp_matrix)){
+  temp_matrix[i, ] <- apply(beta_posterior_draws, 1, function(betas) apply_regression(betas, X[i, ]))
+}
+
+median_temp <- apply(temp_matrix, 1, median)
+fifth_perc <- apply(temp_matrix, 1, function(row) quantile(row, 0.05))
+ninetyfifth_perc <- apply(temp_matrix, 1, function(row) quantile(row, 0.95))
+
+temperature_frame <- data.frame(actual = y, median_posterior_temp = median_temp, 
+                                lower_bound = fifth_perc, upper_bound = ninetyfifth_perc)
+
+p <- ggplot(temperature_frame) +
+  aes(x = 1:366) +
+  geom_point(aes(y = actual, color = "Actual Temperature"), shape = 21, fill = "red") +
+  geom_line(aes(y = median_posterior_temp, color = "Posterior Median"), linewidth = 1) +
+  geom_line(aes(y = lower_bound), color = "blue", alpha = 0.2, linewidth = 1, show.legend = FALSE) + 
+  geom_line(aes(y = upper_bound), color = "blue", alpha = 0.2, linewidth = 1, show.legend = FALSE) + 
+  scale_color_manual(values = c("Actual Temperature" = "red", 
+                                "Posterior Median" = "blue")) + 
+  xlab("Number of Days since first Observation") + 
+  ylab("Temperature in °Celsius") + 
+  ggtitle("Median Regression Curve vs Actual Observations")
+
+print(p)
+
+# Poster distribution of value that minimizes regression curve
+posterior_x <- function(betas){
+  return(-1/2 * (betas[2]/betas[3]))
+}
+
+x_s <- apply(beta_posterior_draws, 1, posterior_x) * 365
+
+
+  
