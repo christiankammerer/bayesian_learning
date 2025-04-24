@@ -76,4 +76,6 @@ p <- ggplot(curve_data, aes(x = x, y = y, group = curve, color = curve)) +
   theme(legend.position = "none")  # optional, removes legend
 
 print(p)
+
+p <- hist(sigma_posterior_draws, col =  "red")
 ```

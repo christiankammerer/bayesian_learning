@@ -170,5 +170,53 @@ posterior_x <- function(betas){
 
 x_s <- apply(beta_posterior_draws, 1, posterior_x) * 365
 
+get_posterior_parameters_reg <- function(mu0, omega0, sigma_sq_0, v0, y, X) {
+  vn <- v0 + length(y)
+  XtX <- t(X) %*% X
+  print(XtX)
+  print(omega0)
+  omega_n <- XtX + omega0
+  beta_hat <- solve(XtX) %*% t(X) %*% y
+  mu_n <- solve(omega_n) %*% t(X) %*% y
+  sigma_sq_n <- as.numeric(
+    (v0 * sigma_sq_0 + t(y) %*% y - t(mu_n) %*% omega_n %*% mu_n) / vn
+  )
+  
+  return(list(
+    mu_n = mu_n,
+    omega_n = omega_n,
+    sigma_sq_n = sigma_sq_n,
+    vn = vn
+  ))
+}
+
+
+
+
+lambda_posterior_f <- function(n, m, X, y, eta0, lambda0){
+  lambda_samples <- rinvchisq(n, eta0, lambda0)
+  mu0 <-  rep(0, m + 1)
+  sigma_sq_0 <- 1
+  v0 <- 1
+  
+  for(lambda in lambda_samples){
+    omega0 <- lambda * diag(m + 1)
+    posterior_params <- get_posterior_parameters_reg(mu0 = mu0, 
+                                                     omega0 = omega0, 
+                                                     sigma_sq_0 =  sigma_sq_0,
+                                                     v0 = v0, 
+                                                     X = X, 
+                                                     y = y)
+    lambda_inv <- (eta0 * lambda0)/lambda
+    with(posterior_params,
+         sqrt(
+           abs(omega0)/abs(t(X) %*% X + omega0)
+         ) * ((vn * sigma_sq_n)/2)^(-vn/2) * dchisq(lambda_inv,  eta0, lambda0)
+  )
+  }
+}
+X <- data$time
+X <- cbind(1, X, X^2, X^3, X^4, X^5, X^6, X^7, X^8, X^9, X^10)
+
 
   
