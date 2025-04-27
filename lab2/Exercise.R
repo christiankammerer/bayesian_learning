@@ -175,9 +175,31 @@ X <- cbind(1, X, X^2, X^3, X^4, X^5, X^6, X^7, X^8, X^9, X^10)
 
 m <- 10
 n <- 1000
+eta0 <- 10
+lambda0 <- 1
+mu0 <- c(20, -100, 100, -10, 10, -1, 1, -0.1, 0.1, -0.01, 0.01)
 lambda_prior_draws <- rinvchisq(n, eta0, lambda0) # prior of lambda
 sigma_prior_draws <- rinvchisq(n, v0, sigma_sq_0) # prior of sigma
-beta_prior_draws <- sapply((1:1000), function(i) rmvnorm(mean = rep(0, (m+1)),
-                                   sigma = (sigma_prior_draws[i] %*% 1/lambda_prior_draws[i] %*% diag(m + 1))))
+beta_prior_draws <- t(sapply((1:n), function(i) rmvnorm(n = 1, mean = mu0,
+                                   sigma = (sigma_prior_draws[i] * 1/lambda_prior_draws[i] * diag(m + 1)))))
+temp_reg_values <- apply(beta_prior_draws, 1, function(betas) X %*% betas)
 
-  
+time_values <- data$time
+temp_reg_df <- as.data.frame(temp_reg_values)
+temp_reg_df$time <- time_values
+
+# Convert to long format
+long_df <- pivot_longer(temp_reg_df, cols = -time, names_to = "draw", values_to = "y")
+
+# Assuming 'long_df' is structured like curve_data:
+# long_df has columns: time (x-axis), y (y-axis), draw (equivalent to "curve")
+
+p <- ggplot(long_df, aes(x = time, y = y, group = draw, color = draw)) +
+  geom_line(alpha = 0.7) +  # matches alpha
+  labs(title = "Posterior Regression Lines",
+       x = "Time", y = "Predicted Value") +
+  ylim(-40, 40) +
+  theme_minimal() +
+  theme(legend.position = "none")  # same as before
+
+print(p)
