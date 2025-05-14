@@ -1,31 +1,14 @@
----
-title: "Lab 2 report"
-author: "Christian Kammerer(chrka821), Jakob Lindner (jakli758)"
-output: pdf_document
----
-
-# Lab 2
-
-## Exercise 1 Linear and polynomial regression
-
-**The dataset temp_linkoping.csv contains daily average temperatures (in degree Celcius) in Linköping between July 2023 and June 2024. Import the dataset in R. The response variable is temp and the covariate time, which is defined as $$time = \frac{\text{the number of days since the beginning of the observation period}} {365}$$ .
-A Bayesian analysis of the following quadratic regression model is to be performed:
-$$temp = \beta_0 + \beta_1 · time + \beta_2 · time^2 + \epsilon,  \epsilon \overset{\mathrm{iid}}{\sim} N (0, \sigma^2)$$.**
-
-### Part a)
-
-**Use the conjugate prior for the linear regression model. The prior hyper parameters $\mu_0$, $\Omega0$, $\nu_0$ and $\sigma^2_o$ 0 shall be set to sensible values. Start with $\mu_0$ = (0, -100, 100)T , $\Omega0$ = 0.01 · I3, $\nu_0$ = 1 and $\sigma^2_0$ = 1. Check if this prior agrees with your prior opinions by simulating draws from the joint prior of all parameters and for every draw compute the regression curve. This gives a collection of regression curves; one for each draw from the prior. Does the collection of curves look reasonable? If not, change the prior hyperparameters until the collection of prior regression curves agrees with your prior beliefs about the regression curve. [Hint: R package mvtnorm can be used and your $Scaled - Inv-\chi^2$ simulator of random draws from Lab 1.]**
-
-```{r, echo = FALSE, warning=FALSE, message=FALSE}
 library(asbio)
 library(mvtnorm)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(matlib)
-```
 
-```{r}
+
+# 1
+
+## 1.1 
 
 data <- read.csv("temp_linkoping.csv")
 
@@ -74,18 +57,8 @@ p <- ggplot(curve_data, aes(x = x, y = y, group = curve, color = curve)) +
 print(p)
 
 
+## 1.2.1
 
-```
-
-The resulting regression curves from the initial values for the prior already showed the expected shape with the lowest temperature around half a year after the start and then going up towards a year later again. Only the values were a bit too low, so we set $mu_0=(20,-100,100)^T$ instead, to move to curve up a bit. This way it pretty much matches our prior believes.
-
-### Part b)
-**Write a function that simulate draws from the joint posterior distribution of $\beta_0$, $\beta_1$,$\beta_2$ and $\sigma^2$.**
-
-
-#### Subpart i)
-**Plot a histogram for each marginal posterior of the parameters.**
-```{r warnings=FALSE}
 # Returns posterior parameters (mu_n, omega_n, sigma_sq_n, vn)
 get_posterior_parameters <- function(mu0, omega0, sigma_sq_0, v0, y, X) {
   vn <- v0 + length(y)
@@ -170,15 +143,11 @@ p <- ggplot() +
   xlab("Sigma") + 
   ggtitle("Distribution of Posterior of Sigma") +
   theme_minimal()
-  
+
 print(p)
 
-```
 
-#### Subpart ii)
-**Make a scatter plot of the temperature data and overlay a curve for the posterior median of the regression function $f (time) = E [temp|time] =\beta_0 + \beta_1 \cdot time + \beta_2 \cdot time^2$, i.e. the median of $f (time)$ is computed for every value of time. In addition, overlay curves for the 90% equal tail posterior probability intervals of $f (time)$, i.e. the 5 and 95 posterior percentiles of f (time) is computed for every value of time. Does the posterior probability intervals contain most of the data points? Should they?**
-
-```{r}
+## 1.2.2
 
 apply_regression <- function(beta_values, X){
   return(beta_values[1] + beta_values[2] * X[2] + beta_values[3] * X[3])
@@ -213,32 +182,18 @@ p <- ggplot(temperature_frame) +
 
 print(p)
 
-```
 
-The plot shows the actual data points in red and the curve for the posterior median in blue. The upper and lower bound for the 5 and 95 posterior intervals are displayed in lighter blue. It shows, that only a minority of data points are contained in this interval. This is not unexpected behavior, as the interval only shows the uncertainty of the regression curve but not for single data points. We can only say, that with 90% probability, the regression curve is in this interval.
+## 1.3
 
-### Part c)
-**It is of interest to locate the time with the lowest expected temperature (i.e. the time where $f (time)$ is minimal). Let's call this value $\tilde{x}$. Use the simulated draws in (b) to simulate from the posterior distribution of $\tilde{x}$. You can solve this analytical or numerical. [Hint: The regression curve is a quadratic polynomial. Given each posterior draw of $\beta_0$, $\beta_1$ and $\beta_2$, you can find a simple formula for $\tilde{x}$.]**
-
-Solving it analytically gives that $\tilde{x}$ can be computed as 
-$$
--\frac{1}{2} \cdot \frac{\beta_1}{\beta_2}
-$$
-
-```{r}
 
 # Posterior distribution of value that minimizes regression curve
 posterior_x <- function(betas){
   return(-1/2 * (betas[2]/betas[3]))
 }
 x_s <- apply(beta_posterior_draws, 1, posterior_x) * 365
-```
-The mean of the simulated values is `r mean(x_s)`, which matches the impression we got from the graph.
 
-### Part d)
-**Say now that you want to estimate a polynomial regression of order 10, but you suspect that higher order terms may not be needed, and you worry about overfitting the data. Suggest a suitable prior that mitigates this potential problem and motivate your choice. Repeat task (a) for the selected prior and the higher order polynomial to see if it behaves as expected. [Hint: the task is to specify $\mu_0$ and $\Omega_0$ in a suitable way.]**
-```{r}
 
+## 1.4
 
 X <- data$time
 X <- cbind(1, X, X^2, X^3, X^4, X^5, X^6, X^7, X^8, X^9, X^10)
@@ -253,7 +208,7 @@ v0 <- 1
 lambda_prior_draws <- rinvchisq(n, eta0, lambda0) # prior of lambda
 sigma_prior_draws <- rinvchisq(n, v0, sigma_sq_0) 
 beta_prior_draws <- t(sapply((1:n), function(i) rmvnorm(n = 1, mean = mu0,
-                                   sigma = (sigma_prior_draws[i] * 1/lambda_prior_draws[i] * diag(m + 1)))))
+                                                        sigma = (sigma_prior_draws[i] * 1/lambda_prior_draws[i] * diag(m + 1)))))
 temp_reg_values <- apply(beta_prior_draws, 1, function(betas) X %*% betas)
 
 time_values <- data$time
@@ -276,29 +231,10 @@ p <- ggplot(long_df, aes(x = time, y = y, group = draw, color = draw)) +
 
 print(p)
 
-```
 
-As prior $\mu_0$ we chose similar values as for the quadratic regression with alternating positive and negative values that get smaller. Depending on the $\eta_0$ and $\lambda_0$, the curves are more or less similar. We decided to allow some uncertainty with some curves to be off the prior believes with e.g. a max value, where the temperature should be the lowest, but still the most curves match the prior believe. 
 
-## Exercise 2: Posterior approximation for classification with logistic regression
+## 2.1
 
-**The dataset Disease.xlsx contains n = 313 observations on  seven variables related to a certain disease.**
-
-### Part a)
-**Consider the logistic regression model:**
-$$
-Pr(y=1\vert x, \beta) = \frac{exp(x^T \beta)}{1+exp(x^T\beta)}
-$$
-
-**where $y$ equals 1 if the person has a disease and 0 if not. $x$ is a 7-dimensional vector containing six features and a column of 1's to include an intercept in the model. The goal is to approximate the posterior distribution of the parameter vector $\beta$ with a multivariate normal distribution**
-
-$$
-\beta\vert y,x \sim N(\tilde{\beta}, J_y^{-1}(\tilde{\beta}))
-$$
-**, where $\tilde{\beta}$ is the posterior mode and $J(\tilde{beta}) = - \frac{\delta^2 \ln p(\beta\vert y)}{\delta \beta \delta\beta^T}$ is the negative of the observed Hessian evaluated at the posterior mode. Note that $\frac{\delta^2 \ln p(\beta\vert y)}{\delta \beta \delta\beta^T}$ is a 7 × 7 matrix with second derivatives on the diagonal and cross-derivatives $\frac{\delta^2 \ln p(\beta\vert y)}{\delta \beta \delta\beta^T}$  on the off-diagonal. You can compute this derivative by hand, but we will let the computer do it numerically for you. Calculate both $\tilde{\beta}$ and $J(\tilde{\beta})$ by using the optim function in R. [Hint: You may use code snippets from my demo of logistic regression in Lecture 6.] Use the prior $\beta \sim N (0, \tau 2 I)$, where $\tau = 2$.**
-**Present the numerical values of $\tilde{\beta}$ and $J_y^-1(\tilde{\beta})$  for the Disease data. Compute an approximate 95% equal tail posterior probability interval for the regression coefficient to the variable Age. Would you say that this feature is of importance for the probability that a person has the disease? [Hint: You can verify that your estimation results are reasonable by comparing the posterior means to the maximum likelihood estimates, given by: glmModel <- glm(Class_of_diagnosis $\sim$ 0 + ., data = Disease, family = binomial).]**
-
-```{r}
 library(mvtnorm)
 data <- read.csv("Disease.csv")
 
@@ -344,19 +280,13 @@ j_theta <- -OptimRes$hessian
 j_theta_inv <- solve(j_theta)
 print(OptimRes$hessian) # Mode of Posterior of Beta
 print(j_theta_inv) # J(theta)^-1
-```
-
-The numerical values lower bound of the confidence interval for the regression coefficient of the variable age is `r round(Cred_int[1, "age"], 4)` and the upper bound is `r round(Cred_int[2, "age"], 4)` . Since both the lower and upper bound are very close to zero, and in fact one is negative and the other is positive, it is indicative of no significant relation between the age variable and our disease.
 
 
-### Part b)
+## 2.2
 
-**Use your normal approximation to the posterior from (a). Write a function that simulate draws from the posterior predictive distribution of $Pr(y = 1\vert x)$, where the certain diagnosis method was used and where the values of x corresponds to a 38-year-old woman, with 10 days of symptoms, no labored breathing and 11000 white blood cells per microliter. Plot the posterior predictive distribution of $Pr(y = 1\vert x)$ for this person.**
-**[Hints: The R package mvtnorm will be useful. Remember that $Pr(y = 1\vert x)$ can be calculated for each posterior draw of $\beta$.]**
-```{r}
 draw_betas <- function(n, mus, cov_matrix){
   return(rmvnorm(n, mean = mus, sigma = cov_matrix))
-  }
+}
 
 beta_draws <- draw_betas(1000, approxPostMode, solve((-OptimRes$hessian)))
 test_subject <- c(1, 38, 1, 10, 0, 11000)
@@ -369,6 +299,3 @@ p <- ggplot() +
   ggtitle("Distribution of posterior predictive distribution for a given patient")
 
 print(p)
-```
-
-The plot of the posterior predictive distribution shows that the probability that the person has the disease it quite high.
