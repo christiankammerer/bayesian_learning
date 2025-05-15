@@ -1,0 +1,73 @@
+# Exercise 2
+
+## b)
+
+We are presented with the *Laplace approximation* of the posterior distribution $p(\beta|y)$. In order to obtain the *analytic posterior distribution* of $\beta$, we need to first calculate the *posterior mode* $\tilde \beta$ and the *negative Hessian* matrix $J_y^{-1}(\tilde \beta)$. This can be achieved through the *log posterior* function $\ell(\beta)$.
+
+$$\ell(\beta) = \text{log } p(y|\beta)+\text{log }p(\beta)$$
+
+**Setting up the (log) likelihood function:**
+
+1.  $y_i$ is Poisson-distributed under the condition of $\beta$ with *rate parameter* $\lambda_i$
+
+$$y_i|\beta \sim \text{Poisson}(\lambda_i)$$
+
+2.  The *probability mass function* of a poisson distributed variable is as below; $$p(y_i) = \frac{\lambda^{y_i} e^{-\lambda}}{y_i}$$
+
+3.  The *rate parameter* $\lambda_i$ is defined by the *covariates* $\mathbf{x}_i$ and the *coefficients* $\beta$; $$\lambda_i = \exp(\mathbf{x_i}^\top\beta)$$
+
+4.  The l*ikelihood function* $L(\beta)$ look as follows: $$L(\beta) = p(y|\beta) = \prod^n_{i=1}\frac{\lambda_i^{y_i}e^{-\lambda_i}}{y_i!} = \prod^n_{i=1} \frac{\exp(\mathbf{x}_i^\top\beta)^{y_i}\exp(-\exp(\mathbf{x}_i^\top\beta))}{y_i!}$$
+
+5.  This leads to the following *log-likelihood function* $\ell(\beta)$ $$\ell(\beta) = \log p(y|\beta) = \sum^n_{i=1}\mathbf{x_i}^\top\beta y_i - \exp(\mathbf{x}_i^\top\beta)-\log(y_i!)$$
+
+**Setting up the log-prior function:**
+
+1.  We know that the prior $p(\beta)$ is a *multivariate normal distribution* with $\mu = 0$ and $\Sigma = 100(\mathbf{X^\top X}^{-1})$
+
+2.  The *probability density function* of a multivariate normal distribution is given as;
+
+    $$
+    p(\beta) = (2\pi)^{-k/2}\lvert\Sigma\rvert^{-1/2}\exp\left(-\frac{1}{2}(\beta-\mu)^\top\Sigma^{-1}(\beta - \mu)\right)
+    $$
+
+3.  This leads to a *log-prior* function, that looks as follows:
+
+$$
+    \log p(\beta) = - \frac{k}{2}\log(2\pi)-\frac{1}{2}\log(\lvert\Sigma\rvert)-\frac{1}{2}(\beta-\mu)^\top\Sigma^{-1}(\beta_\mu)
+    $$
+
+**Log-posterior function:**
+
+The *log-posterior* function is the product of the log-likelihood $\ell(\beta)$ and the log-prior $\log p(\beta)$, thus
+
+$$
+\log p(\beta|y) = \ell(\beta)\log p(\beta)
+$$
+
+```{r}
+log_prior <- function(sigma, mu, beta){
+  k <- nrow(sigma)
+  return(
+    log(2*pi) * k/2 -
+      1/2 * log(det(sigma)) -
+      1/2 * t(beta - mu) %*% solve(sigma) %*% (beta - mu)
+  )
+}
+
+log_likelihood <- function(x, y, beta){
+  n <- nrow(x)
+  return(
+    sum(
+      sapply((1:n), function(i) t(x[i, ]) %*% beta * y[i]
+             - exp(t(x[i, ]) %*% beta) 
+             - log(factorial(y[i])))
+    )
+  )
+}
+
+log_posterior <- function(sigma, mu, x, y, beta){
+  return(log_prior(sigma, mu, beta) * log_likelihood(x, y, beta))
+}
+
+
+```
