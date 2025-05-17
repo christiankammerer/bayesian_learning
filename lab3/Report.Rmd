@@ -45,8 +45,19 @@ $$
 $$
 
 ```{r}
+library(mvtnorm)
+X <- read.table("eBayNumberOfBidderData_2025.dat", header = TRUE)
+y <- X$nBids
+X$nBids <- NULL
+x <- as.matrix(X)
+
+# Prior parameters
+p <- ncol(x)
+mu <- rep(0, p)
+sigma <- 100 * solve(t(x) %*% x)
 log_prior <- function(sigma, mu, beta){
   k <- nrow(sigma)
+  
   return(
     log(2*pi) * k/2 -
       1/2 * log(det(sigma)) -
@@ -66,8 +77,51 @@ log_likelihood <- function(x, y, beta){
 }
 
 log_posterior <- function(sigma, mu, x, y, beta){
-  return(log_prior(sigma, mu, beta) * log_likelihood(x, y, beta))
+  print(sigma)
+  print(mu)
+  return(log_prior(sigma, mu, beta) + log_likelihood(x, y, beta))
 }
 
+# Objective to minimize (negative log-posterior)
+neg_log_posterior <- function(beta) {
+  -log_posterior(sigma, mu, x, y, beta)
+}
 
+# Optimization (to find posterior mode)
+optres <- optim(par = rep(0, p), fn = neg_log_posterior, hessian = TRUE, method = "BFGS")
+
+# Posterior mode
+beta_mode <- optres$par
+
+# Negative Hessian at mode (i.e. observed information)
+neg_hessian <- optres$hessian
+
+# Output results
+cat("Posterior mode (beta):\n")
+print(beta_mode)
+
+cat("\nNegative Hessian at mode:\n")
+print(neg_hessian)
+
+
+```
+
+### c)
+
+```{r}
+metropolis_alg <- function(n, initial_vec, sample_func, c=1, sigma, ...){
+  p <- length(initial_vec)
+  sample_matrix <- matrix(nrow = n, ncol = length(initial_vec))
+  x_t <- rmvnorm(1, mean = rep(0, p), sigma = sigma)
+  print(x_t)
+  f_x_t <- log_posterior(x_t, ...)
+  print(f_x_t)
+  for(i in 1:n){
+    proposal <- rmvnorm(1, mean = x_t, sigma = c * sigma)
+    
+  }
+}
+
+initial_vec<- rmvnorm(1, mean = rep(0, p), sigma = diag(p))
+x_t <- metropolis_alg(n = 1000, initial_vec, log_posterior, 10, neg_hessian, mu = rep(0, p), x = x, y = y)
 ```
