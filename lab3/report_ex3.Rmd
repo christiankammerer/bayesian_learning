@@ -1,0 +1,142 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+# Exercise 3 - Time series models in Stan
+
+## Task a)
+**Write a function in R that simulates data from the AR(1)-process**
+$$
+x_t = \mu + \phi(x_{t-1}-\mu)+\epsilon_t, \epsilon_t \overset{iid}{\sim} N(0,\sigma^2)
+$$
+**for given values of $\mu, \phi \text{ and } \sigma^2$. Start the process at $x_1 = \mu$ and then simulate values for $x_t$ for $t = 2, 3 . . . , T$ and return the vector $x_{1:T}$ containing all time points. Use $\mu = 5, \sigma^2=9$ and $ T=300$and look at some different realizations (simulations) of $x_{1:T}$ for values of $\phi$ between -1 and 1 (this is the interval of $\phi$ where the AR(1)-process is stationary). Include a plot of at least one realization in the report. What effect does the value of $\phi$ have on $x_{1:T}$ ?**
+```{r, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(rstan)
+```
+
+
+```{r}
+simulate_ar1 <- function(mu, sigma2, phi, T){
+  x <- numeric(T)
+  x[1] <- mu # use mu as initial value
+  
+  for (t in 2:T){
+    epsilon_t <- rnorm(1,mean=0, sd=sqrt(sigma2))
+    x[t] <- mu + phi * (x[t-1] - mu) + epsilon_t
+  }
+  
+  return (x)
+}
+
+
+mu <- 5
+sigma2 <- 9
+T <- 300
+phi_values <- c(-0.9, -0.5, 0, 0.5, 0.9) # arbitrary values from -1 to 1
+
+
+
+
+
+par(mfrow = c(3, 2), mar = c(4, 4, 2, 1))
+
+for (phi in phi_values) {
+  x <- simulate_ar1(mu=mu, sigma2=sigma2, phi=phi, T=T)
+  plot(x, type = "l", main = paste("AR(1) Simulation, phi =", phi),
+       xlab = "Time", ylab = expression(x[t]))
+  abline(h = mu, col = "red", lty = 2)
+}
+
+```
+
+Values for $\phi < 0$ result in alternating results around $\mu$. For $phi > 0$, the values are more steady and less zigzag. In the formula, $\phi$ decides on how much the previous point $x_{t-1}$ influences the new point $x_t$. 
+
+
+## Task b)
+**Use your function from a) to simulate two AR(1)-processes, $x_{1:T}$ with $\phi = 0.4$ and $y_{1:T}$ with $\phi = 0.98$. Now, treat your simulated vectors as synthetic data, and treat the values of $\mu, \phi \text{ and } \sigma^2$ as unknown parameters. Implement Stancode that samples from the posterior of the three parameters, using suitable non-informative priors of your choice. [Hint: Look at the time-series models examples in the Stan user's guide/reference manual, and note the different parameterization used here.]**
+
+In the Stan model we use three non-informative priors:
+$\mu \sim \text{Normal}(0,100)$ weakly informative, allows a big range of possible $\mu$
+$\phi \sim \text{Uniform}(-1, 1)$ Uniform on the interval, where AR(1) is stationary
+$\sigma \sim \text{Cauchy}(0,5)$ Cauchy is a common choice for scale parameters as $\sigma$
+
+We draw from $x_t \vert \mu,\phi,\sigma~ \text{Normal}(\mu + \phi * (x_{t-1}- \mu), \sigma)$.
+As $\epsilon_t$ is normal distributed, $x_t$ follows the normal distribution as well.
+
+```{r, results='hide'}
+# simulate data with function from a)
+set.seed(42)
+x1 <- simulate_ar1(mu=mu, sigma2=sigma2, phi=0.4, T=T)
+x2 <- simulate_ar1(mu=mu, sigma2=sigma2, phi=0.98, T=T)
+
+stan_data_x1 <- list(T = T, x = x1)
+stan_data_x2 <- list(T = T, x = x2)
+
+stan_model <- "
+  data{
+    int<lower=2> T;
+    vector[T] x;
+  }
+  
+  parameters{
+    real mu;
+    real<lower=-1, upper=1> phi;
+    real<lower=0> sigma;
+  }
+  
+  model {
+    mu ~ normal(5,10);
+    phi ~ uniform(-1,1);
+    sigma ~ cauchy(0,5);
+    
+    for(t in 2:T) {
+      x[t] ~ normal(mu + phi * (x[t-1] - mu), sigma);
+    }
+  }
+"
+fit_x1 <- stan(model_code=stan_model, data = stan_data_x1, chains = 4, iter = 2000)
+fit_x2 <- stan(model_code=stan_model, data = stan_data_x2, chains = 4, iter = 2000)
+
+```
+
+### Subtask i)
+**Report the posterior mean, 95% credible intervals and the number of effective posterior samples for the three inferred parameters for each of the simulated AR(1)-process. Are you able to estimate the true values?**
+```{r}
+
+print(fit_x1, pars = c("mu", "phi", "sigma"), probs = c(0.025, 0.975))
+print(fit_x2, pars = c("mu", "phi", "sigma"), probs = c(0.025, 0.975))
+
+```
+
+The results are close to the real values. Only $\mu$ for $\phi=0.98$ is way off, with 175 compared to the true 5.
+
+### Subtask ii)
+**For each of the two data sets, evaluate the convergence of the samplers and plot the joint posterior of $\mu$ and $\phi$. Comments?**
+```{r}
+traceplot(fit_x1, pars = c("mu", "phi", "sigma"))
+traceplot(fit_x2, pars = c("mu", "phi", "sigma"))
+
+```
+
+For $\phi=0.4$, all parameters show a good convergence. For $\phi=0.98$, the chains are stuck around 0.95. Due to the high autocorrelation the model is not fully exploring the posterior.
+
+```{r}
+posterior_samples_x1 <- as.data.frame(rstan::extract(fit_x1, pars = c("mu", "phi")))
+posterior_samples_x2 <- as.data.frame(rstan::extract(fit_x2, pars = c("mu", "phi")))
+
+ggplot(posterior_samples_x1, aes(x = mu, y = phi)) +
+  geom_point(alpha = 0.2) +
+  labs(title = "Joint Posterior (Phi = 0.4)", x = expression(mu), y = expression(phi)) +
+  theme_minimal()
+
+ggplot(posterior_samples_x2, aes(x = mu, y = phi)) +
+  geom_point(alpha = 0.2) +
+  labs(title = "Joint Posterior (Phi = 0.98)", x = expression(mu), y = expression(phi)) +
+  theme_minimal()
+
+```
+
+The joint posterior for $\phi=0.4$ shows, that the space is well explored and there is low correlation between $\mu$ and $\phi$. For $\phi=0.98$, the space is not fully explored and $\mu$ lies on a big range to compensate for higher $\phi$.
